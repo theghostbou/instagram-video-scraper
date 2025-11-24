@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# Run
+*.pid
+*.out
+
+# Flask
+instance/
+.webassets-cache
+
+# Deployment
+.sass-cache/
+connect.lock
+coverage/
+*.coverage
+.hypothesis/
+.coverage.*
+.pytest_cache/
+
+# Local development
+.DS_Store
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+__pycache__/

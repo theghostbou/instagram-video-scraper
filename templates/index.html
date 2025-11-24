@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstaSave - Instagram Video & Photo Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <i class="fab fa-instagram"></i>
+                <h1>InstaSave</h1>
+            </div>
+            <p>Download Instagram Videos & Photos</p>
+        </header>
+
+        <main class="main-content">
+            <div class="download-section">
+                <div class="input-group">
+                    <input type="text" id="url-input" placeholder="Paste Instagram URL here..." autocomplete="off">
+                    <button id="download-btn">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                </div>
+                
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Processing your request...</p>
+                </div>
+                
+                <div id="error-message" class="error-message hidden"></div>
+                
+                <div id="result" class="result hidden">
+                    <div class="media-preview">
+                        <div id="media-container"></div>
+                    </div>
+                    <div class="download-options">
+                        <a id="download-link" class="btn-download" href="#" download>
+                            <i class="fas fa-download"></i> Download Media
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="feature">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>Free to Use</h3>
+                    <p>No registration required, completely free</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h3>Mobile Friendly</h3>
+                    <p>Works on all devices and platforms</p>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-bolt"></i>
+                    <h3>Fast Downloads</h3>
+                    <p>Quick processing and downloading</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2023 InstaSave. This tool is for personal use only.</p>
+            <p>Instagram is a trademark of Instagram, LLC.</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
