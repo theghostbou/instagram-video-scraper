@@ -3,7 +3,7 @@ import os
 
 def test_instagram_downloader():
     """Test the Instagram Downloader application"""
-    base_url = "http://localhost:5001"
+    base_url = "http://localhost:8080"
     
     # Test 1: Health check
     print("Testing health endpoint...")
@@ -47,7 +47,7 @@ def test_instagram_downloader():
     
     print("\n✓ All tests passed! The application is working correctly.")
     print("\nTo use the application:")
-    print("1. Open your browser and go to http://localhost:5001")
+    print("1. Open your browser and go to http://localhost:8080")
     print("2. Paste an Instagram post URL in the input field")
     print("3. Click 'Download' to retrieve the media")
     return True
