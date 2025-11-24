@@ -37,12 +37,12 @@ def extract_instagram_media_url(url):
         if not shortcode:
             return None
 
-        # Create a session to handle cookies
+        # Use a session with comprehensive headers to mimic a real browser and avoid detection
         session = requests.Session()
 
-        # Set comprehensive headers to mimic a real browser
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+        # Try using Instagram Graph API with proper headers to bypass scraping detection
+        graphql_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -52,11 +52,51 @@ def extract_instagram_media_url(url):
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Instagram-AJAX': '1',
+            'X-CSRFToken': '',
         }
 
-        # Try to access the specific post directly
-        page_response = session.get(url, headers=headers, timeout=15)
+        # First attempt: Try to get the page content with standard headers
+        page_response = session.get(url, headers=graphql_headers, timeout=20)
+
+        # If we get blocked or get a response that doesn't contain expected content, try alternative approaches
+        if page_response.status_code != 200 or 'window._sharedData' not in page_response.text:
+            # Second attempt: Try with different user agent to avoid detection
+            mobile_headers = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+            }
+
+            page_response = session.get(url, headers=mobile_headers, timeout=20)
+
+            if page_response.status_code != 200 or 'window._sharedData' not in page_response.text:
+                # Third attempt: Try with referer and different approach
+                alt_headers = {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Cache-Control': 'max-age=0',
+                    'Referer': 'https://www.google.com/',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'cross-site',
+                    'TE': 'Trailers',
+                }
+
+                page_response = session.get(url, headers=alt_headers, timeout=20)
 
         if page_response.status_code == 200:
             content = page_response.text
@@ -158,7 +198,7 @@ def extract_instagram_media_url(url):
 
         # If the direct method doesn't work, try the oembed API
         oembed_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'application/json',
         }
 
@@ -180,10 +220,65 @@ def extract_instagram_media_url(url):
             except json.JSONDecodeError:
                 pass
 
+        # Try direct GraphQL API request (this may require authentication but is worth trying)
+        # Use the shortcode to make a direct API call to Instagram's GraphQL endpoint
+        try:
+            graphql_url = "https://www.instagram.com/graphql/query/"
+            graphql_query = {
+                "shortcode": shortcode,
+                "child_comment_count": 3,
+                "fetch_comment_count": 40,
+                "parent_comment_count": 24,
+                "has_threaded_comments": True
+            }
+
+            # Headers that try to mimic a real Instagram web request
+            graphql_api_headers = {
+                'X-IG-App-ID': '936619743392459',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': '*/*',
+                'Referer': url,
+            }
+
+            response = session.post(
+                graphql_url,
+                headers=graphql_api_headers,
+                data={'query_hash': 'b3055c01b4b222b87ee0b3894b2b3e2b', 'variables': json.dumps(graphql_query)},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                graphql_data = response.json()
+                if 'data' in graphql_data and 'shortcode_media' in graphql_data['data']:
+                    media = graphql_data['data']['shortcode_media']
+
+                    if media.get('__typename') == 'GraphVideo':
+                        video_url = media.get('video_url')
+                        if video_url:
+                            return video_url
+                    elif media.get('__typename') == 'GraphImage':
+                        return media.get('display_url')
+                    elif media.get('__typename') == 'GraphSidecar':
+                        edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
+                        if edges:
+                            first_media = edges[0]['node']
+                            if first_media.get('__typename') == 'GraphVideo':
+                                video_url = first_media.get('video_url')
+                                if video_url:
+                                    return video_url
+                                return first_media.get('display_url')
+                            else:
+                                return first_media.get('display_url')
+
+        except Exception as e:
+            print(f"GraphQL API request failed: {str(e)}")
+            # Continue with other methods if GraphQL fails
+
         # If all else fails, try with different headers (to simulate different environments)
         # Some Instagram content might be accessible with different accept headers
         alt_headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9,en-GB;q=0.8,de;q=0.7',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -209,7 +304,7 @@ def extract_instagram_media_url(url):
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
                     media_url = match.group(1)
-                    return media_url
+                    return media_url.replace('\\u0026', '&').replace('\\/', '/')
 
         return None
     except Exception as e:
