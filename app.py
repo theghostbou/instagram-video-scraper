@@ -40,32 +40,25 @@ def extract_instagram_media_url(url):
         # Use a session with comprehensive headers to mimic a real browser and avoid detection
         session = requests.Session()
 
-        # Try using Instagram Graph API with proper headers to bypass scraping detection
-        graphql_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-Instagram-AJAX': '1',
-            'X-CSRFToken': '',
-        }
-
-        # First attempt: Try to get the page content with standard headers
-        page_response = session.get(url, headers=graphql_headers, timeout=20)
-
-        # If we get blocked or get a response that doesn't contain expected content, try alternative approaches
-        if page_response.status_code != 200 or 'window._sharedData' not in page_response.text:
-            # Second attempt: Try with different user agent to avoid detection
-            mobile_headers = {
+        # Try multiple approaches with different headers to avoid detection
+        headers_list = [
+            # Desktop Chrome
+            {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+                'Referer': 'https://www.google.com/',
+            },
+            # Mobile Safari
+            {
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
@@ -75,35 +68,54 @@ def extract_instagram_media_url(url):
                 'Sec-Fetch-Dest': 'document',
                 'Sec-Fetch-Mode': 'navigate',
                 'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'no-cache',
+            },
+            # Desktop Firefox
+            {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Cache-Control': 'no-cache',
+                'TE': 'Trailers',
+            },
+            # Mac Chrome
+            {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,en-GB;q=0.8,de;q=0.7',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Cache-Control': 'no-cache',
+                'Referer': 'https://www.google.com/',
             }
+        ]
 
-            page_response = session.get(url, headers=mobile_headers, timeout=20)
+        # Try each header set in sequence
+        for headers in headers_list:
+            try:
+                page_response = session.get(url, headers=headers, timeout=25)
 
-            if page_response.status_code != 200 or 'window._sharedData' not in page_response.text:
-                # Third attempt: Try with referer and different approach
-                alt_headers = {
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1',
-                    'Cache-Control': 'max-age=0',
-                    'Referer': 'https://www.google.com/',
-                    'Sec-Fetch-Dest': 'document',
-                    'Sec-Fetch-Mode': 'navigate',
-                    'Sec-Fetch-Site': 'cross-site',
-                    'TE': 'Trailers',
-                }
-
-                page_response = session.get(url, headers=alt_headers, timeout=20)
+                if page_response.status_code == 200 and 'window._sharedData' in page_response.text:
+                    break
+                elif page_response.status_code == 429:  # Rate limited
+                    # Wait a bit before trying next header set
+                    import time
+                    time.sleep(2)
+                    continue
+            except requests.RequestException:
+                # Try next header set
+                continue
 
         if page_response.status_code == 200:
             content = page_response.text
 
             # Look for the main JSON data in the page - Instagram often embeds this data
             # Try to find the main JSON payload in window._sharedData
-            json_match = re.search(r'window\._sharedData\s*=\s*({.*?});', content)
+            json_match = re.search(r'window\._sharedData\s*=\s*({.*?});', content, re.DOTALL)
             if not json_match:
                 # Try the __additionalDataLoaded pattern
                 json_match = re.search(r'window\.__additionalDataLoaded\s*\([^,]*,\s*({.*?})\s*\);', content, re.DOTALL)
@@ -114,6 +126,10 @@ def extract_instagram_media_url(url):
                 script_match = re.search(r'<script[^>]*>\s*window\._sharedData\s*=\s*({.*?});\s*</script>', content, re.DOTALL)
                 if script_match:
                     json_match = script_match
+
+            # Another possibility: Instagram's embedded JSON in different format
+            if not json_match:
+                json_match = re.search(r'({"config":.*?"is_vr_on_web":false})\s*,?\s*<\/script>', content, re.DOTALL)
 
             if json_match:
                 try:
@@ -156,57 +172,48 @@ def extract_instagram_media_url(url):
                     pass
 
             # If JSON parsing fails, try pattern matching in the content
-            # Look for video URL
-            video_match = re.search(r'"video_url":"([^"]+)"', content)
-            if video_match:
-                video_url = video_match.group(1).replace('\\u0026', '&').replace('\\/', '/')
-                return video_url
-
-            # Look for image URL
-            image_match = re.search(r'"display_url":"([^"]+)"', content)
-            if image_match:
-                image_url = image_match.group(1).replace('\\u0026', '&').replace('\\/', '/')
-                return image_url
-
-            # Try more patterns for video URLs - sometimes they are in different formats
-            more_video_patterns = [
+            # Look for video URL with various patterns
+            video_patterns = [
+                r'"video_url":"([^"]+)"',
+                r'"video_url":\s*"([^"]+)"',
                 r'"video_versions".*?"url":"([^"]+)"',
                 r'"url":"([^"]*\.mp4[^"]*)"',
                 r'"playback_url":"([^"]+)"',
                 r'"src":"([^"]*\.mp4[^"]*)"',
             ]
 
-            for pattern in more_video_patterns:
-                match = re.search(pattern, content, re.DOTALL)
-                if match:
-                    video_url = match.group(1).replace('\\u0026', '&').replace('\\/', '/')
+            for pattern in video_patterns:
+                video_match = re.search(pattern, content, re.DOTALL)
+                if video_match:
+                    video_url = video_match.group(1).replace('\\u0026', '&').replace('\\/', '/')
                     return video_url
 
-            # Try more patterns for images
-            more_image_patterns = [
+            # Look for image URL patterns
+            image_patterns = [
+                r'"display_url":"([^"]+)"',
+                r'"display_url":\s*"([^"]+)"',
                 r'"display_resources".*?"src":"([^"]+)"',
                 r'"src":"([^"]*\.jpe?g[^"]*)"',
                 r'"src":"([^"]*\.png[^"]*)"',
-                r'"display_url":"([^"]+)"',
             ]
 
-            for pattern in more_image_patterns:
-                match = re.search(pattern, content, re.DOTALL)
-                if match:
-                    image_url = match.group(1).replace('\\u0026', '&').replace('\\/', '/')
+            for pattern in image_patterns:
+                image_match = re.search(pattern, content, re.DOTALL)
+                if image_match:
+                    image_url = image_match.group(1).replace('\\u0026', '&').replace('\\/', '/')
                     return image_url
 
-        # If the direct method doesn't work, try the oembed API
+        # If the initial methods fail, try the oembed API
         oembed_headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'application/json',
         }
 
-        oembed_url = f"https://api.instagram.com/oembed/?url={url}"
-        oembed_response = session.get(oembed_url, headers=oembed_headers)
+        try:
+            oembed_url = f"https://api.instagram.com/oembed/?url={url}"
+            oembed_response = session.get(oembed_url, headers=oembed_headers, timeout=15)
 
-        if oembed_response.status_code == 200:
-            try:
+            if oembed_response.status_code == 200:
                 oembed_data = oembed_response.json()
 
                 # For videos, sometimes the direct media URL is available
@@ -217,13 +224,21 @@ def extract_instagram_media_url(url):
                 if 'thumbnail_url' in oembed_data:
                     return oembed_data['thumbnail_url']
 
-            except json.JSONDecodeError:
-                pass
+        except (requests.RequestException, json.JSONDecodeError):
+            pass
 
-        # Try direct GraphQL API request (this may require authentication but is worth trying)
-        # Use the shortcode to make a direct API call to Instagram's GraphQL endpoint
+        # Try direct GraphQL API request with the Instagram App ID
+        # This is another approach that may work in server environments
         try:
             graphql_url = "https://www.instagram.com/graphql/query/"
+
+            # Different query hash for media extraction (these change often)
+            query_hashes = [
+                'b3055c01b4b222b87ee0b3894b2b3e2b',  # General media query
+                '477b65a6628c505af9a3dc280c949596',  # Alternative query
+                '9f8827793ef34641b2fb195d4d419b2d',  # Another alternative
+            ]
+
             graphql_query = {
                 "shortcode": shortcode,
                 "child_comment_count": 3,
@@ -232,79 +247,132 @@ def extract_instagram_media_url(url):
                 "has_threaded_comments": True
             }
 
-            # Headers that try to mimic a real Instagram web request
             graphql_api_headers = {
-                'X-IG-App-ID': '936619743392459',
+                'X-IG-App-ID': '936619743392459',  # Instagram's web app client ID
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': '*/*',
                 'Referer': url,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '',
             }
 
-            response = session.post(
-                graphql_url,
-                headers=graphql_api_headers,
-                data={'query_hash': 'b3055c01b4b222b87ee0b3894b2b3e2b', 'variables': json.dumps(graphql_query)},
-                timeout=15
-            )
+            # Try different query hashes
+            for query_hash in query_hashes:
+                try:
+                    response = session.post(
+                        graphql_url,
+                        headers=graphql_api_headers,
+                        data={'query_hash': query_hash, 'variables': json.dumps(graphql_query)},
+                        timeout=15
+                    )
 
-            if response.status_code == 200:
-                graphql_data = response.json()
-                if 'data' in graphql_data and 'shortcode_media' in graphql_data['data']:
-                    media = graphql_data['data']['shortcode_media']
+                    if response.status_code == 200:
+                        graphql_data = response.json()
+                        if 'data' in graphql_data and 'shortcode_media' in graphql_data['data']:
+                            media = graphql_data['data']['shortcode_media']
 
-                    if media.get('__typename') == 'GraphVideo':
-                        video_url = media.get('video_url')
-                        if video_url:
-                            return video_url
-                    elif media.get('__typename') == 'GraphImage':
-                        return media.get('display_url')
-                    elif media.get('__typename') == 'GraphSidecar':
-                        edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
-                        if edges:
-                            first_media = edges[0]['node']
-                            if first_media.get('__typename') == 'GraphVideo':
-                                video_url = first_media.get('video_url')
+                            if media.get('__typename') == 'GraphVideo':
+                                video_url = media.get('video_url')
                                 if video_url:
                                     return video_url
-                                return first_media.get('display_url')
-                            else:
-                                return first_media.get('display_url')
+                            elif media.get('__typename') == 'GraphImage':
+                                return media.get('display_url')
+                            elif media.get('__typename') == 'GraphSidecar':
+                                edges = media.get('edge_sidecar_to_children', {}).get('edges', [])
+                                if edges:
+                                    first_media = edges[0]['node']
+                                    if first_media.get('__typename') == 'GraphVideo':
+                                        video_url = first_media.get('video_url')
+                                        if video_url:
+                                            return video_url
+                                        return first_media.get('display_url')
+                                    else:
+                                        return first_media.get('display_url')
+                    elif response.status_code == 429:  # Rate limited
+                        # Wait before trying next query hash
+                        import time
+                        time.sleep(1)
+                        continue
+                except requests.RequestException:
+                    continue
 
         except Exception as e:
             print(f"GraphQL API request failed: {str(e)}")
             # Continue with other methods if GraphQL fails
 
-        # If all else fails, try with different headers (to simulate different environments)
-        # Some Instagram content might be accessible with different accept headers
-        alt_headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9,en-GB;q=0.8,de;q=0.7',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Referer': 'https://www.google.com/',
-        }
+        # Additional fallback: try using the URL with instagram.com/p/shortcode/ format
+        try:
+            # Create a direct URL to the media
+            direct_url = f"https://www.instagram.com/p/{shortcode}/"
 
-        alt_response = session.get(url, headers=alt_headers, timeout=15)
-        if alt_response.status_code == 200:
-            content = alt_response.text
+            # Try with a new session and different headers
+            direct_session = requests.Session()
+            direct_headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Cache-Control': 'no-cache',
+                'Referer': 'https://www.google.com/',
+            }
 
-            # Look for meta tags that might contain the image/video URL
-            meta_patterns = [
-                r'<meta[^>]*property="og:video"[^>]*content="([^"]+)"',
-                r'<meta[^>]*property="og:video:url"[^>]*content="([^"]+)"',
-                r'<meta[^>]*property="og:video:secure_url"[^>]*content="([^"]+)"',
-                r'<meta[^>]*property="og:image"[^>]*content="([^"]+)"',
-                r'<meta[^>]*name="twitter:image"[^>]*content="([^"]+)"',
-                r'<meta[^>]*property="og:image:url"[^>]*content="([^"]+)"',
-            ]
+            direct_response = direct_session.get(direct_url, headers=direct_headers, timeout=20)
+            if direct_response.status_code == 200:
+                content = direct_response.text
 
-            for pattern in meta_patterns:
-                match = re.search(pattern, content, re.IGNORECASE)
-                if match:
-                    media_url = match.group(1)
-                    return media_url.replace('\\u0026', '&').replace('\\/', '/')
+                # Look for media URLs in the direct URL response
+                # Try more patterns for video URLs
+                more_video_patterns = [
+                    r'"video_url":"([^"]+)"',
+                    r'"video_url":\s*"([^"]+)"',
+                    r'"video_versions".*?"url":"([^"]+)"',
+                    r'"url":"([^"]*\.mp4[^"]*)"',
+                    r'"playback_url":"([^"]+)"',
+                    r'"src":"([^"]*\.mp4[^"]*)"',
+                ]
+
+                for pattern in more_video_patterns:
+                    video_match = re.search(pattern, content, re.DOTALL)
+                    if video_match:
+                        video_url = video_match.group(1).replace('\\u0026', '&').replace('\\/', '/')
+                        return video_url
+
+                # Try more patterns for images
+                more_image_patterns = [
+                    r'"display_url":"([^"]+)"',
+                    r'"display_url":\s*"([^"]+)"',
+                    r'"display_resources".*?"src":"([^"]+)"',
+                    r'"src":"([^"]*\.jpe?g[^"]*)"',
+                    r'"src":"([^"]*\.png[^"]*)"',
+                ]
+
+                for pattern in more_image_patterns:
+                    image_match = re.search(pattern, content, re.DOTALL)
+                    if image_match:
+                        image_url = image_match.group(1).replace('\\u0026', '&').replace('\\/', '/')
+                        return image_url
+
+                # Also check for meta tags in the direct response
+                meta_patterns = [
+                    r'<meta[^>]*property="og:video"[^>]*content="([^"]+)"',
+                    r'<meta[^>]*property="og:video:url"[^>]*content="([^"]+)"',
+                    r'<meta[^>]*property="og:video:secure_url"[^>]*content="([^"]+)"',
+                    r'<meta[^>]*property="og:image"[^>]*content="([^"]+)"',
+                    r'<meta[^>]*name="twitter:image"[^>]*content="([^"]+)"',
+                    r'<meta[^>]*property="og:image:url"[^>]*content="([^"]+)"',
+                ]
+
+                for pattern in meta_patterns:
+                    match = re.search(pattern, content, re.IGNORECASE)
+                    if match:
+                        media_url = match.group(1)
+                        return media_url.replace('\\u0026', '&').replace('\\/', '/')
+
+        except Exception as e:
+            print(f"Direct URL approach failed: {str(e)}")
 
         return None
     except Exception as e:
